@@ -22,7 +22,7 @@ define abstract entity z2ui5_cds_test_popup
 }
 ```
 
-### abap2UI5 Popup Call
+#### abap2UI5 Popup Call
 ```abap
 CLASS z2ui5_cl_cds_popup_test DEFINITION
   PUBLIC
