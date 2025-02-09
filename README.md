@@ -45,10 +45,8 @@ CLASS z2ui5_cl_cds_popup_test IMPLEMENTATION.
       DATA(lo_popup) = NEW z2ui5_cl_cds_popup( ls_cds ).
       client->nav_app_call( CAST #( lo_popup ) ).
       RETURN.
-
     ENDIF.
 
-    "read result
     lo_popup = CAST #( client->get_app_prev( ) ).
     ls_cds = lo_popup->result( )->*.
 
