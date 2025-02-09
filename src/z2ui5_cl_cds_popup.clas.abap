@@ -4,7 +4,9 @@ CLASS z2ui5_cl_cds_popup DEFINITION
   CREATE PUBLIC .
 
   PUBLIC SECTION.
+
     INTERFACES z2ui5_if_app.
+
     METHODS constructor
       IMPORTING
         val TYPE data.
@@ -24,36 +26,43 @@ ENDCLASS.
 CLASS z2ui5_cl_cds_popup IMPLEMENTATION.
 
   METHOD constructor.
-    ms_cds = REF #( val ).
+
+    CREATE DATA ms_cds LIKE val.
+    ms_cds->* = val.
+
   ENDMETHOD.
 
   METHOD z2ui5_if_app~main.
 
-    DATA(lo_cds) = xco_cds=>view( `Z2UI5_CDS_TEST_POPUP` ).
+    DATA(lo_datadescr) = cl_abap_datadescr=>describe_by_data( ms_cds->* ).
+    DATA(lv_name3) = lo_datadescr->get_relative_name( ).
 
-    IF lo_cds->exists( ).
-      DATA(es_content) = lo_cds->content( )->get( ).
-      DATA(et_fields) = lo_cds->fields->all->get( ).
+    DATA(lo_cds) = xco_cds=>view( conv #( lv_name3 ) ).
+    DATA(et_fields) = lo_cds->fields->all->get( ).
 
-      DATA(lo_field) = et_fields[ 1 ].
-      DATA(lo_field_content) = lo_field->content( ).
+    DATA(lo_view_entity) = xco_cp_cds=>view_entity( conv #( lv_name3 ) ).
 
-    ENDIF.
+    LOOP AT et_fields INTO DATA(lo_field).
 
+      DATA(lv_name) = lo_field->name.
+      DATA(lo_view_entity_field) = lo_view_entity->field( lv_name ).
 
-    DATA(lo_view_entity_field) = xco_cp_cds=>view_entity( 'Z2UI5_CDS_TEST_POPUP'
-      )->field( 'SearchCountry' ).
+      DATA(lt_anno) = xco_cp_cds=>annotations->direct->of( lo_view_entity_field )->get( ).
+      LOOP AT lt_anno INTO DATA(lo_anno).
 
-    DATA(lt_anno) = xco_cp_cds=>annotations->direct->of( lo_view_entity_field )->get( ).
-    DATA(lo_anno) = lt_anno[ 1 ].
-    DATA(lo_prop) =  lo_anno->get_property( ).
-    DATA(lo_val) = lo_anno->get_value( ).
-    DATA lv_val TYPE string.
-    lo_val->write_to( ia_value = REF #( lv_val ) ).
+        DATA(lv_prop) = lo_anno->get_property( ).
+        CASE lv_prop.
 
+          WHEN `ENDUSERTEXT.LABEL`.
 
-*    lo_cds->
-*    DATA(lo_anno) = xco_cds=>annotations( `Z2UI5_CDS_TEST_POPUP` ).
+            DATA(lo_val) = lo_anno->get_value( ).
+            DATA lv_val TYPE string.
+            lo_val->write_to( REF #( lv_val ) ).
+
+        ENDCASE.
+
+      ENDLOOP.
+    ENDLOOP.
 
   ENDMETHOD.
 
