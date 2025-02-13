@@ -31,8 +31,9 @@ define abstract entity z2ui5_cds_test_popup
 
     IF client->check_on_init( ).
 
-      data(ls_cds) = value z2ui5_cds_test_popup( SearchCountry = `USA` ).
-      DATA(lo_popup) = NEW z2ui5_cl_cds_popup( ls_cds ).
+      DATA(lo_popup) = NEW z2ui5_cl_cds_popup( value z2ui5_cds_test_popup(
+        SearchCountry = `USA`
+      ) ).
       client->nav_app_call( CAST #( lo_popup ) ).
       RETURN.
 
