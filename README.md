@@ -2,8 +2,6 @@
 
 Display CDS Artefacts with abap2UI5
 
-WIP 🚧
-
 ### CDS Popup
 
 ##### Popup Definition 
