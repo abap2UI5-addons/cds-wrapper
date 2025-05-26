@@ -30,7 +30,8 @@ CLASS z2ui5_cl_cds_popup_test IMPLEMENTATION.
 
     "read result
     lo_popup = CAST #( client->get_app_prev( ) ).
-    ls_cds = lo_popup->result( )->*.
+    DATA(lr_result) = lo_popup->result( ).
+    ls_cds = lr_result->*.
 
   ENDMETHOD.
 
