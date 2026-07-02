@@ -1,4 +1,13 @@
 @EndUserText.label: 'Object Page Test Entity'
+@UI.headerInfo: { typeName: 'Purchase Order',
+                  typeNamePlural: 'Purchase Orders',
+                  title: { value: 'OrderId' },
+                  description: { value: 'CustomerName' } }
+@UI.facet: [ { id: 'General', type: #FIELDGROUP_REFERENCE, label: 'General Information', targetQualifier: 'General', position: 10 },
+             { id: 'Dates', type: #FIELDGROUP_REFERENCE, label: 'Dates', targetQualifier: 'Dates', position: 20 },
+             { id: 'Amounts', type: #FIELDGROUP_REFERENCE, label: 'Amounts', targetQualifier: 'Amounts', position: 30 },
+             { id: 'Notes', type: #FIELDGROUP_REFERENCE, label: 'Notes', targetQualifier: 'Notes', position: 40 },
+             { id: 'Admin', type: #FIELDGROUP_REFERENCE, label: 'Administrative Data', targetQualifier: 'Admin', position: 50 } ]
 define abstract entity z2ui5_cds_test_op
 {
   @UI.fieldGroup: [{ qualifier: 'General', position: 10 }]
@@ -41,18 +50,22 @@ define abstract entity z2ui5_cds_test_op
 
   @UI.fieldGroup: [{ qualifier: 'Amounts', position: 10 }]
   @EndUserText.label: 'Net Amount'
+  @Semantics.amount.currencyCode: 'Currency'
   NetAmount      : abap.dec(15,2);
 
   @UI.fieldGroup: [{ qualifier: 'Amounts', position: 20 }]
   @EndUserText.label: 'Tax Amount'
+  @Semantics.amount.currencyCode: 'Currency'
   TaxAmount      : abap.dec(15,2);
 
   @UI.fieldGroup: [{ qualifier: 'Amounts', position: 30 }]
   @EndUserText.label: 'Gross Amount'
+  @Semantics.amount.currencyCode: 'Currency'
   GrossAmount    : abap.dec(15,2);
 
   @UI.fieldGroup: [{ qualifier: 'Amounts', position: 40 }]
   @EndUserText.label: 'Currency'
+  @Semantics.currencyCode: true
   Currency       : abap.cuky;
 
   @UI.fieldGroup: [{ qualifier: 'Admin', position: 10 }]
