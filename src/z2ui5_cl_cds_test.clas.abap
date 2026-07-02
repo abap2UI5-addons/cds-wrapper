@@ -17,6 +17,7 @@ CLASS z2ui5_cl_cds_test DEFINITION
         open_list_report   TYPE string VALUE `OPEN_LIST_REPORT`,
         open_list_report2  TYPE string VALUE `OPEN_LIST_REPORT2`,
         open_list_material TYPE string VALUE `OPEN_LIST_MATERIAL`,
+        open_list_travel   TYPE string VALUE `OPEN_LIST_TRAVEL`,
         open_worklist      TYPE string VALUE `OPEN_WORKLIST`,
         open_overview_page TYPE string VALUE `OPEN_OVERVIEW_PAGE`,
       END OF cs_event.
@@ -67,6 +68,10 @@ CLASS z2ui5_cl_cds_test IMPLEMENTATION.
         text  = `List Report (I_Material)`
         press = client->_event( cs_event-open_list_material )
         icon  = `sap-icon://product` ).
+      lo_hbox2->button(
+        text  = `List Report (/DMO/ Travel)`
+        press = client->_event( cs_event-open_list_travel )
+        icon  = `sap-icon://flight` ).
       lo_hbox2->button(
         text  = `Worklist`
         press = client->_event( cs_event-open_worklist )
@@ -157,6 +162,14 @@ CLASS z2ui5_cl_cds_test IMPLEMENTATION.
         title         = `Materials`
         max_rows      = 200 ).
       client->nav_app_call( CAST #( lo_lr3 ) ).
+      RETURN.
+    ENDIF.
+
+    IF client->check_on_event( cs_event-open_list_travel ).
+      DATA(lo_lr4) = NEW z2ui5_cl_cds_list_report(
+        cds_view_name = `/DMO/I_TRAVEL_U`
+        title         = `Travels (DMO Flight Scenario)` ).
+      client->nav_app_call( CAST #( lo_lr4 ) ).
       RETURN.
     ENDIF.
 
