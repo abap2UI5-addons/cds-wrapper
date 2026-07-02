@@ -64,6 +64,10 @@ CLASS z2ui5_cl_cds_util DEFINITION
         selection_field_pos TYPE i,
         is_selection_field  TYPE abap_bool,
 
+        "identification
+        identification_pos TYPE i,
+        is_identification  TYPE abap_bool,
+
         "dataPoint
         datapoint_qualifier  TYPE string,
         datapoint_crit_field TYPE string,
@@ -496,6 +500,12 @@ CLASS z2ui5_cl_cds_util IMPLEMENTATION.
       IF lv_key CS `UI.SELECTIONFIELD` AND lv_key CS `.POSITION`.
         cs_field-is_selection_field = abap_true.
         cs_field-selection_field_pos = CONV i( lv_val ).
+      ENDIF.
+
+      "@UI.identification
+      IF lv_key CS `UI.IDENTIFICATION` AND lv_key CS `.POSITION`.
+        cs_field-is_identification = abap_true.
+        cs_field-identification_pos = CONV i( lv_val ).
       ENDIF.
 
       "@UI.dataPoint

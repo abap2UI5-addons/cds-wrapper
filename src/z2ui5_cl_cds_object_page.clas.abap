@@ -19,13 +19,21 @@ CLASS z2ui5_cl_cds_object_page DEFINITION
   PROTECTED SECTION.
   PRIVATE SECTION.
 
+    TYPES:
+      BEGIN OF ty_s_section,
+        title       TYPE string,
+        field_group TYPE string,
+      END OF ty_s_section.
+
+    TYPES ty_t_section TYPE STANDARD TABLE OF ty_s_section WITH DEFAULT KEY.
+
     METHODS render_page
       IMPORTING
         client TYPE REF TO z2ui5_if_client.
 
-    METHODS get_field_groups
+    METHODS get_sections
       RETURNING
-        VALUE(result) TYPE string_table.
+        VALUE(result) TYPE ty_t_section.
 
     METHODS render_section_form
       IMPORTING
@@ -37,9 +45,32 @@ CLASS z2ui5_cl_cds_object_page DEFINITION
       RETURNING
         VALUE(result) TYPE z2ui5_cl_cds_util=>ty_t_field_info.
 
+    METHODS get_datapoint_fields
+      RETURNING
+        VALUE(result) TYPE z2ui5_cl_cds_util=>ty_t_field_info.
+
     METHODS get_criticality_state
       IMPORTING
         iv_crit_value TYPE i
+      RETURNING
+        VALUE(result) TYPE string.
+
+    METHODS get_crit_value
+      IMPORTING
+        iv_field      TYPE string
+      RETURNING
+        VALUE(result) TYPE i.
+
+    METHODS get_field_value
+      IMPORTING
+        is_field      TYPE z2ui5_cl_cds_util=>ty_s_field_info
+      RETURNING
+        VALUE(result) TYPE string.
+
+    METHODS format_value
+      IMPORTING
+        is_field      TYPE z2ui5_cl_cds_util=>ty_s_field_info
+        val           TYPE any
       RETURNING
         VALUE(result) TYPE string.
 
@@ -83,28 +114,76 @@ CLASS z2ui5_cl_cds_object_page IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_field_groups.
-    LOOP AT ms_entity-fields INTO DATA(ls_field)
-      WHERE field_group IS NOT INITIAL.
-      IF NOT line_exists( result[ table_line = ls_field-field_group ] ).
-        APPEND ls_field-field_group TO result.
+  METHOD get_sections.
+
+    "facet-driven: @UI.facet fieldGroup references define order and labels
+    DATA lt_facets TYPE z2ui5_cl_cds_util=>ty_t_facet.
+    LOOP AT ms_entity-facets INTO DATA(ls_facet)
+      WHERE target_qualifier IS NOT INITIAL.
+      IF ls_facet-type IS INITIAL OR ls_facet-type CS `FIELDGROUP`.
+        APPEND ls_facet TO lt_facets.
       ENDIF.
     ENDLOOP.
+    SORT lt_facets BY position.
+
+    LOOP AT lt_facets INTO ls_facet.
+      IF NOT line_exists( ms_entity-fields[ field_group = ls_facet-target_qualifier ] ).
+        CONTINUE.
+      ENDIF.
+      DATA(lv_title) = ls_facet-label.
+      IF lv_title IS INITIAL.
+        lv_title = ls_facet-target_qualifier.
+      ENDIF.
+      APPEND VALUE ty_s_section(
+        title       = lv_title
+        field_group = ls_facet-target_qualifier ) TO result.
+    ENDLOOP.
+
+    "field groups not covered by facets, in order of appearance
+    LOOP AT ms_entity-fields INTO DATA(ls_field)
+      WHERE field_group IS NOT INITIAL AND is_hidden = abap_false.
+      IF NOT line_exists( result[ field_group = ls_field-field_group ] ).
+        APPEND VALUE ty_s_section(
+          title       = ls_field-field_group
+          field_group = ls_field-field_group ) TO result.
+      ENDIF.
+    ENDLOOP.
+
+    "no field groups at all -> single section with all visible fields
     IF result IS INITIAL.
-      APPEND `General` TO result.
+      APPEND VALUE ty_s_section( title = `General` ) TO result.
     ENDIF.
+
   ENDMETHOD.
 
 
   METHOD get_identification_fields.
-    "fields with @UI.identification are shown in header
+
+    "fields annotated with @UI.identification, ordered by position
     LOOP AT ms_entity-fields INTO DATA(ls_field)
-      WHERE is_hidden = abap_false.
-      "for now: use first 3 non-hidden fields if no identification annotation
+      WHERE is_identification = abap_true AND is_hidden = abap_false.
       APPEND ls_field TO result.
-      IF lines( result ) >= 3.
-        EXIT.
-      ENDIF.
+    ENDLOOP.
+    SORT result BY identification_pos.
+
+    "fallback: first 3 visible fields (dataPoints are rendered separately)
+    IF result IS INITIAL.
+      LOOP AT ms_entity-fields INTO ls_field
+        WHERE is_hidden = abap_false AND datapoint_qualifier IS INITIAL.
+        APPEND ls_field TO result.
+        IF lines( result ) >= 3.
+          EXIT.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD get_datapoint_fields.
+    LOOP AT ms_entity-fields INTO DATA(ls_field)
+      WHERE datapoint_qualifier IS NOT INITIAL AND is_hidden = abap_false.
+      APPEND ls_field TO result.
     ENDLOOP.
   ENDMETHOD.
 
@@ -116,6 +195,60 @@ CLASS z2ui5_cl_cds_object_page IMPLEMENTATION.
       WHEN 3. result = `Success`.
       WHEN OTHERS. result = `None`.
     ENDCASE.
+  ENDMETHOD.
+
+
+  METHOD get_crit_value.
+    FIELD-SYMBOLS <lv_crit> TYPE any.
+    ASSIGN COMPONENT iv_field OF STRUCTURE ms_data->* TO <lv_crit>.
+    IF sy-subrc = 0.
+      TRY.
+          result = <lv_crit>.
+        CATCH cx_root ##NO_HANDLER.
+      ENDTRY.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD get_field_value.
+    FIELD-SYMBOLS <lv_val> TYPE any.
+    ASSIGN COMPONENT is_field-name OF STRUCTURE ms_data->* TO <lv_val>.
+    IF sy-subrc = 0.
+      result = format_value( is_field = is_field
+                             val      = <lv_val> ).
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD format_value.
+
+    DATA lv_date TYPE d.
+    DATA lv_time TYPE t.
+
+    IF is_field-is_boolean = abap_true.
+      result = COND #( WHEN val = abap_true THEN `Yes` ELSE `No` ).
+      RETURN.
+    ENDIF.
+
+    TRY.
+        CASE is_field-type_kind.
+          WHEN `DATS`.
+            lv_date = val.
+            IF lv_date IS NOT INITIAL.
+              result = |{ lv_date DATE = USER }|.
+            ENDIF.
+          WHEN `TIMS`.
+            lv_time = val.
+            IF lv_time IS NOT INITIAL.
+              result = |{ lv_time TIME = USER }|.
+            ENDIF.
+          WHEN OTHERS.
+            result = |{ val }|.
+        ENDCASE.
+      CATCH cx_root.
+        result = |{ val }|.
+    ENDTRY.
+
   ENDMETHOD.
 
 
@@ -162,45 +295,56 @@ CLASS z2ui5_cl_cds_object_page IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    "===== HEADER CONTENT (key attributes) =====
+    "===== HEADER CONTENT (key attributes + data points) =====
     DATA(lo_hc) = lo_op->header_content( ns = `uxap` ).
     DATA(lo_hbox) = lo_hc->flex_box( wrap = `Wrap` fitcontainer = abap_true ).
 
-    "show identification fields or first few fields as header attributes
-    DATA(lt_id_fields) = get_identification_fields( ).
-    LOOP AT lt_id_fields INTO DATA(ls_id).
-      FIELD-SYMBOLS <lv_id_val> TYPE any.
-      ASSIGN COMPONENT ls_id-name OF STRUCTURE ms_data->* TO <lv_id_val>.
-      IF sy-subrc = 0.
-        DATA(lv_val_str) = CONV string( <lv_id_val> ).
-        IF lv_val_str IS NOT INITIAL.
-          lo_hbox->vbox( `sapUiSmallMarginEnd sapUiSmallMarginBottom`
-            )->label( text = ls_id-label
-            )->text( lv_val_str
-            )->get_parent( ).
-        ENDIF.
+    "identification fields as header attributes
+    LOOP AT get_identification_fields( ) INTO DATA(ls_id).
+      DATA(lv_val_str) = get_field_value( ls_id ).
+      IF lv_val_str IS NOT INITIAL.
+        lo_hbox->vbox( `sapUiSmallMarginEnd sapUiSmallMarginBottom`
+          )->label( text = ls_id-label
+          )->text( lv_val_str
+          )->get_parent( ).
       ENDIF.
+    ENDLOOP.
+
+    "@UI.dataPoint fields as status attributes with criticality
+    LOOP AT get_datapoint_fields( ) INTO DATA(ls_dp).
+      lv_val_str = get_field_value( ls_dp ).
+      IF lv_val_str IS INITIAL.
+        CONTINUE.
+      ENDIF.
+      DATA(lv_state) = `None`.
+      IF ls_dp-datapoint_crit_field IS NOT INITIAL.
+        lv_state = get_criticality_state( get_crit_value( ls_dp-datapoint_crit_field ) ).
+      ENDIF.
+      lo_hbox->vbox( `sapUiSmallMarginEnd sapUiSmallMarginBottom`
+        )->label( text = ls_dp-label
+        )->object_status(
+            text  = lv_val_str
+            state = lv_state
+        )->get_parent( ).
     ENDLOOP.
 
     "===== SECTIONS =====
     DATA(lo_sections) = lo_op->sections( ).
 
-    "auto-generate sections from fieldGroup qualifiers
-    DATA(lt_groups) = get_field_groups( ).
-    LOOP AT lt_groups INTO DATA(lv_group).
+    LOOP AT get_sections( ) INTO DATA(ls_section).
       DATA(lo_section) = lo_sections->object_page_section(
         titleuppercase = abap_false
-        title          = lv_group ).
+        title          = ls_section-title ).
 
       DATA(lo_sub_sections) = lo_section->sub_sections( ).
       DATA(lo_sub) = lo_sub_sections->object_page_sub_section(
-        title     = lv_group
+        title     = ls_section-title
         showtitle = abap_false ).
       DATA(lo_blocks) = lo_sub->blocks( ).
 
       render_section_form(
         io_parent = lo_blocks
-        iv_group  = lv_group
+        iv_group  = ls_section-field_group
         client    = client ).
     ENDLOOP.
 
@@ -220,6 +364,7 @@ CLASS z2ui5_cl_cds_object_page IMPLEMENTATION.
       columnsxl = `4` ).
 
     "collect and sort fields for this group
+    "(empty group = fields without any fieldGroup annotation)
     DATA lt_sorted TYPE z2ui5_cl_cds_util=>ty_t_field_info.
     LOOP AT ms_entity-fields INTO DATA(ls_field)
       WHERE is_hidden = abap_false AND field_group = iv_group.
@@ -235,12 +380,35 @@ CLASS z2ui5_cl_cds_object_page IMPLEMENTATION.
 
       lo_form->label( ls_field-label ).
 
-      DATA(lv_display_val) = CONV string( <field> ).
+      DATA(lv_display_val) = format_value( is_field = ls_field
+                                           val      = <field> ).
 
-      IF ls_field-is_multiline = abap_true.
-        lo_form->text( lv_display_val ).
-      ELSEIF ls_field-type_kind = `DATS` AND lv_display_val IS NOT INITIAL.
-        lo_form->text( lv_display_val ).
+      "criticality -> ObjectStatus
+      IF ls_field-datapoint_crit_field IS NOT INITIAL.
+        lo_form->object_status(
+          text  = lv_display_val
+          state = get_criticality_state( get_crit_value( ls_field-datapoint_crit_field ) ) ).
+
+      "amount + currency -> ObjectNumber
+      ELSEIF ls_field-is_amount_field = abap_true
+        AND ls_field-semantics_currency_code IS NOT INITIAL.
+        DATA(ls_currency) = VALUE z2ui5_cl_cds_util=>ty_s_field_info(
+          name = ls_field-semantics_currency_code ).
+        lo_form->object_number(
+          number     = lv_display_val
+          unit       = get_field_value( ls_currency )
+          emphasized = abap_false ).
+
+      "quantity + unit -> ObjectNumber
+      ELSEIF ls_field-is_quantity_field = abap_true
+        AND ls_field-semantics_unit_of_measure IS NOT INITIAL.
+        DATA(ls_unit) = VALUE z2ui5_cl_cds_util=>ty_s_field_info(
+          name = ls_field-semantics_unit_of_measure ).
+        lo_form->object_number(
+          number     = lv_display_val
+          unit       = get_field_value( ls_unit )
+          emphasized = abap_false ).
+
       ELSE.
         lo_form->text( lv_display_val ).
       ENDIF.
