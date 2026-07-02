@@ -9,12 +9,27 @@ CLASS z2ui5_cl_cds_object_page DEFINITION
 
     METHODS constructor
       IMPORTING
-        val   TYPE data
-        title TYPE string OPTIONAL.
+        val       TYPE data
+        title     TYPE string OPTIONAL
+        editable  TYPE abap_bool DEFAULT abap_false
+        is_create TYPE abap_bool DEFAULT abap_false.
+
+    "! Check if user saved (for caller to detect on return)
+    METHODS was_saved
+      RETURNING
+        VALUE(result) TYPE abap_bool.
+
+    "! Get the saved data reference
+    METHODS result
+      RETURNING
+        VALUE(result) TYPE REF TO data.
 
     DATA ms_data TYPE REF TO data.
     DATA mv_title TYPE string.
     DATA ms_entity TYPE z2ui5_cl_cds_util=>ty_s_entity_info.
+    DATA mv_editable TYPE abap_bool.
+    DATA mv_is_create TYPE abap_bool.
+    DATA mv_saved TYPE abap_bool.
 
   PROTECTED SECTION.
   PRIVATE SECTION.
@@ -26,6 +41,18 @@ CLASS z2ui5_cl_cds_object_page DEFINITION
       END OF ty_s_section.
 
     TYPES ty_t_section TYPE STANDARD TABLE OF ty_s_section WITH DEFAULT KEY.
+
+    CONSTANTS:
+      BEGIN OF cs_event,
+        back   TYPE string VALUE `BACK`,
+        edit   TYPE string VALUE `EDIT`,
+        save   TYPE string VALUE `SAVE`,
+        cancel TYPE string VALUE `CANCEL`,
+        delete TYPE string VALUE `DELETE`,
+      END OF cs_event.
+
+    DATA ms_data_backup TYPE REF TO data.
+    DATA mv_entity_name TYPE string.
 
     METHODS render_page
       IMPORTING
@@ -74,6 +101,18 @@ CLASS z2ui5_cl_cds_object_page DEFINITION
       RETURNING
         VALUE(result) TYPE string.
 
+    METHODS save_data
+      IMPORTING
+        client        TYPE REF TO z2ui5_if_client
+      RETURNING
+        VALUE(result) TYPE abap_bool.
+
+    METHODS delete_data
+      IMPORTING
+        client        TYPE REF TO z2ui5_if_client
+      RETURNING
+        VALUE(result) TYPE abap_bool.
+
 ENDCLASS.
 
 
@@ -84,6 +123,18 @@ CLASS z2ui5_cl_cds_object_page IMPLEMENTATION.
     CREATE DATA ms_data LIKE val.
     ms_data->* = val.
     mv_title = title.
+    mv_editable = editable.
+    mv_is_create = is_create.
+  ENDMETHOD.
+
+
+  METHOD was_saved.
+    result = mv_saved.
+  ENDMETHOD.
+
+
+  METHOD result.
+    result = ms_data.
   ENDMETHOD.
 
 
@@ -91,8 +142,12 @@ CLASS z2ui5_cl_cds_object_page IMPLEMENTATION.
 
     IF client->check_on_init( ).
       DATA(lo_datadescr) = cl_abap_datadescr=>describe_by_data( ms_data->* ).
-      DATA(lv_entity_name) = lo_datadescr->get_relative_name( ).
-      ms_entity = z2ui5_cl_cds_util=>read_entity( lv_entity_name ).
+      mv_entity_name = lo_datadescr->get_relative_name( ).
+      ms_entity = z2ui5_cl_cds_util=>read_entity( mv_entity_name ).
+
+      "backup original data for cancel
+      CREATE DATA ms_data_backup LIKE ms_data->*.
+      ms_data_backup->* = ms_data->*.
 
       IF mv_title IS INITIAL.
         IF ms_entity-header_info-type_name IS NOT INITIAL.
@@ -106,10 +161,90 @@ CLASS z2ui5_cl_cds_object_page IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    IF client->check_on_event( `BACK` ).
+    IF client->check_on_event( cs_event-back ).
       client->nav_app_leave( ).
       RETURN.
     ENDIF.
+
+    IF client->check_on_event( cs_event-edit ).
+      mv_editable = abap_true.
+      render_page( client ).
+      RETURN.
+    ENDIF.
+
+    IF client->check_on_event( cs_event-cancel ).
+      ms_data->* = ms_data_backup->*.
+      mv_editable = abap_false.
+      render_page( client ).
+      RETURN.
+    ENDIF.
+
+    IF client->check_on_event( cs_event-save ).
+      IF save_data( client ).
+        mv_saved = abap_true.
+        mv_editable = abap_false.
+        "update backup to new saved state
+        ms_data_backup->* = ms_data->*.
+        render_page( client ).
+        client->message_toast_display( `Data saved successfully` ).
+      ENDIF.
+      RETURN.
+    ENDIF.
+
+    IF client->check_on_event( cs_event-delete ).
+      IF delete_data( client ).
+        mv_saved = abap_true.
+        client->message_toast_display( `Data deleted successfully` ).
+        client->nav_app_leave( ).
+      ENDIF.
+      RETURN.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD save_data.
+
+    FIELD-SYMBOLS <ls_data> TYPE any.
+    ASSIGN ms_data->* TO <ls_data>.
+
+    TRY.
+        MODIFY (mv_entity_name) FROM @<ls_data>.
+        IF sy-subrc = 0.
+          result = abap_true.
+        ELSE.
+          client->message_box_display(
+            text = `Save failed (sy-subrc <> 0)`
+            type = `error` ).
+        ENDIF.
+      CATCH cx_root INTO DATA(lx_err).
+        client->message_box_display(
+          text = lx_err->get_text( )
+          type = `error` ).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+  METHOD delete_data.
+
+    FIELD-SYMBOLS <ls_data> TYPE any.
+    ASSIGN ms_data->* TO <ls_data>.
+
+    TRY.
+        DELETE (mv_entity_name) FROM @<ls_data>.
+        IF sy-subrc = 0.
+          result = abap_true.
+        ELSE.
+          client->message_box_display(
+            text = `Delete failed (sy-subrc <> 0)`
+            type = `error` ).
+        ENDIF.
+      CATCH cx_root INTO DATA(lx_err).
+        client->message_box_display(
+          text = lx_err->get_text( )
+          type = `error` ).
+    ENDTRY.
 
   ENDMETHOD.
 
@@ -261,7 +396,7 @@ CLASS z2ui5_cl_cds_object_page IMPLEMENTATION.
     DATA(lo_page) = lo_shell->page(
       title          = mv_title
       shownavbutton  = client->check_app_prev_stack( )
-      navbuttonpress = client->_event( `BACK` ) ).
+      navbuttonpress = client->_event( cs_event-back ) ).
     DATA(lo_op) = lo_page->object_page_layout(
       uppercaseanchorbar = abap_false ).
 
@@ -284,6 +419,31 @@ CLASS z2ui5_cl_cds_object_page IMPLEMENTATION.
 
     "snapped title on mobile
     lo_ht->snapped_title_on_mobile( )->title( lv_title_text ).
+
+    "actions - Edit / Save / Cancel / Delete buttons
+    DATA(lo_actions) = lo_ht->actions( ns = `uxap` ).
+    IF mv_editable = abap_false.
+      lo_actions->button(
+        text  = `Edit`
+        press = client->_event( cs_event-edit )
+        type  = `Emphasized`
+        icon  = `sap-icon://edit` ).
+      lo_actions->button(
+        text  = `Delete`
+        press = client->_event( cs_event-delete )
+        type  = `Reject`
+        icon  = `sap-icon://delete` ).
+    ELSE.
+      lo_actions->button(
+        text  = `Save`
+        press = client->_event( cs_event-save )
+        type  = `Emphasized`
+        icon  = `sap-icon://save` ).
+      lo_actions->button(
+        text  = `Cancel`
+        press = client->_event( cs_event-cancel )
+        icon  = `sap-icon://decline` ).
+    ENDIF.
 
     "expanded content - show subtitle/description
     IF ms_entity-header_info-description_field IS NOT INITIAL.
@@ -357,7 +517,7 @@ CLASS z2ui5_cl_cds_object_page IMPLEMENTATION.
 
     DATA(lo_form) = io_parent->simple_form(
       class     = `sapUxAPObjectPageSubSectionAlignContent`
-      editable  = abap_false
+      editable  = mv_editable
       layout    = `ColumnLayout`
       columnsm  = `2`
       columnsl  = `3`
@@ -380,37 +540,62 @@ CLASS z2ui5_cl_cds_object_page IMPLEMENTATION.
 
       lo_form->label( ls_field-label ).
 
-      DATA(lv_display_val) = format_value( is_field = ls_field
-                                           val      = <field> ).
+      "=== EDIT MODE: render input controls ===
+      IF mv_editable = abap_true.
 
-      "criticality -> ObjectStatus
-      IF ls_field-datapoint_crit_field IS NOT INITIAL.
-        lo_form->object_status(
-          text  = lv_display_val
-          state = get_criticality_state( get_crit_value( ls_field-datapoint_crit_field ) ) ).
+        IF ls_field-is_boolean = abap_true.
+          lo_form->checkbox(
+            selected = client->_bind_edit( <field> )
+            text     = `` ).
+        ELSEIF ls_field-type_kind = `DATS`.
+          lo_form->date_picker(
+            value = client->_bind_edit( <field> ) ).
+        ELSEIF ls_field-is_multiline = abap_true.
+          lo_form->text_area(
+            value = client->_bind_edit( <field> )
+            rows  = `4`
+            width = `100%` ).
+        ELSE.
+          lo_form->input(
+            value = client->_bind_edit( <field> ) ).
+        ENDIF.
 
-      "amount + currency -> ObjectNumber
-      ELSEIF ls_field-is_amount_field = abap_true
-        AND ls_field-semantics_currency_code IS NOT INITIAL.
-        DATA(ls_currency) = VALUE z2ui5_cl_cds_util=>ty_s_field_info(
-          name = ls_field-semantics_currency_code ).
-        lo_form->object_number(
-          number     = lv_display_val
-          unit       = get_field_value( ls_currency )
-          emphasized = abap_false ).
-
-      "quantity + unit -> ObjectNumber
-      ELSEIF ls_field-is_quantity_field = abap_true
-        AND ls_field-semantics_unit_of_measure IS NOT INITIAL.
-        DATA(ls_unit) = VALUE z2ui5_cl_cds_util=>ty_s_field_info(
-          name = ls_field-semantics_unit_of_measure ).
-        lo_form->object_number(
-          number     = lv_display_val
-          unit       = get_field_value( ls_unit )
-          emphasized = abap_false ).
-
+      "=== DISPLAY MODE: render read-only controls ===
       ELSE.
-        lo_form->text( lv_display_val ).
+
+        DATA(lv_display_val) = format_value( is_field = ls_field
+                                             val      = <field> ).
+
+        "criticality -> ObjectStatus
+        IF ls_field-datapoint_crit_field IS NOT INITIAL.
+          lo_form->object_status(
+            text  = lv_display_val
+            state = get_criticality_state( get_crit_value( ls_field-datapoint_crit_field ) ) ).
+
+        "amount + currency -> ObjectNumber
+        ELSEIF ls_field-is_amount_field = abap_true
+          AND ls_field-semantics_currency_code IS NOT INITIAL.
+          DATA(ls_currency) = VALUE z2ui5_cl_cds_util=>ty_s_field_info(
+            name = ls_field-semantics_currency_code ).
+          lo_form->object_number(
+            number     = lv_display_val
+            unit       = get_field_value( ls_currency )
+            emphasized = abap_false ).
+
+        "quantity + unit -> ObjectNumber
+        ELSEIF ls_field-is_quantity_field = abap_true
+          AND ls_field-semantics_unit_of_measure IS NOT INITIAL.
+          DATA(ls_unit) = VALUE z2ui5_cl_cds_util=>ty_s_field_info(
+            name = ls_field-semantics_unit_of_measure ).
+          lo_form->object_number(
+            number     = lv_display_val
+            unit       = get_field_value( ls_unit )
+            emphasized = abap_false ).
+
+        ELSE.
+          lo_form->text( lv_display_val ).
+        ENDIF.
+
       ENDIF.
 
     ENDLOOP.

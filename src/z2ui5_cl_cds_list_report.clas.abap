@@ -39,6 +39,7 @@ CLASS z2ui5_cl_cds_list_report DEFINITION
         go        TYPE string VALUE `GO`,
         row_press TYPE string VALUE `ROW_PRESS`,
         back      TYPE string VALUE `BACK`,
+        create    TYPE string VALUE `CREATE`,
       END OF cs_event.
 
     DATA mt_row_key TYPE string_table.
@@ -128,6 +129,45 @@ CLASS z2ui5_cl_cds_list_report IMPLEMENTATION.
 
     IF client->check_on_event( cs_event-back ).
       client->nav_app_leave( ).
+      RETURN.
+    ENDIF.
+
+    IF client->check_on_event( cs_event-create ).
+      TRY.
+          DATA(lo_descr_cr) = CAST cl_abap_structdescr(
+            cl_abap_typedescr=>describe_by_name( mv_cds_view ) ).
+          DATA lr_empty TYPE REF TO data.
+          CREATE DATA lr_empty TYPE HANDLE lo_descr_cr.
+          FIELD-SYMBOLS <ls_empty> TYPE any.
+          ASSIGN lr_empty->* TO <ls_empty>.
+          client->nav_app_call(
+            NEW z2ui5_cl_cds_object_page(
+              val       = <ls_empty>
+              title     = `Create ` && mv_title
+              editable  = abap_true
+              is_create = abap_true ) ).
+        CATCH cx_root.
+          client->message_box_display(
+            text = `Cannot create entry for this entity`
+            type = `error` ).
+      ENDTRY.
+      RETURN.
+    ENDIF.
+
+    "handle return from Object Page - refresh if data was saved
+    IF client->check_on_navigated( ).
+      IF client->check_app_prev_stack( ).
+        TRY.
+            DATA(lo_prev_op) = CAST z2ui5_cl_cds_object_page(
+              client->get_app_prev( ) ).
+            IF lo_prev_op->was_saved( ).
+              load_data( ).
+              client->message_toast_display( `Data refreshed` ).
+            ENDIF.
+          CATCH cx_sy_move_cast_error ##NO_HANDLER.
+        ENDTRY.
+      ENDIF.
+      client->view_model_update( ).
       RETURN.
     ENDIF.
 
@@ -331,10 +371,15 @@ CLASS z2ui5_cl_cds_list_report IMPLEMENTATION.
       sticky           = `ColumnHeaders,HeaderToolbar`
       mode             = `None` ).
 
-    "toolbar with title + bound count (stays in sync on refresh)
+    "toolbar with title + bound count + create button
     DATA(lo_toolbar) = lo_table->header_toolbar( )->overflow_toolbar( ).
     lo_toolbar->title( text = mv_title && ` (` && client->_bind( mv_count ) && `)` ).
     lo_toolbar->toolbar_spacer( ).
+    lo_toolbar->button(
+      text  = `Create`
+      press = client->_event( cs_event-create )
+      type  = `Emphasized`
+      icon  = `sap-icon://add` ).
     lo_toolbar->button( icon  = `sap-icon://refresh`
                         press = client->_event( cs_event-refresh ) ).
 
