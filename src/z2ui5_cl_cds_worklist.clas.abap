@@ -26,7 +26,6 @@ CLASS z2ui5_cl_cds_worklist DEFINITION
     CONSTANTS:
       BEGIN OF cs_event,
         refresh TYPE string VALUE `REFRESH`,
-        search  TYPE string VALUE `SEARCH`,
       END OF cs_event.
 
     METHODS load_data.

@@ -66,7 +66,6 @@ CLASS z2ui5_cl_cds_value_help IMPLEMENTATION.
     mv_element = to_upper( element ).
     mv_title = title.
     mv_max_rows = max_rows.
-    mv_confirmed = abap_false.
   ENDMETHOD.
 
 

@@ -78,7 +78,6 @@ CLASS z2ui5_cl_cds_action_dialog IMPLEMENTATION.
     CREATE DATA ms_cds LIKE val.
     ms_cds->* = val.
     mv_title = title.
-    mv_confirmed = abap_false.
   ENDMETHOD.
 
 
@@ -287,7 +286,7 @@ CLASS z2ui5_cl_cds_action_dialog IMPLEMENTATION.
         ASSIGN lt_result->* TO <lt_data>.
         SELECT * FROM (lv_entity) INTO TABLE @<lt_data> UP TO 200 ROWS.
       CATCH cx_root.
-        client->message_toast_display( |Could not load value help data| ).
+        client->message_toast_display( `Could not load value help data` ).
         RETURN.
     ENDTRY.
 

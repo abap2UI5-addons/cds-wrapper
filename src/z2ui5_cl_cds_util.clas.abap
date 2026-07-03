@@ -78,7 +78,7 @@ CLASS z2ui5_cl_cds_util DEFINITION
         is_currency_field  TYPE abap_bool,
         is_unit_field      TYPE abap_bool,
         is_amount_field    TYPE abap_bool,
-        is_quantity_field   TYPE abap_bool,
+        is_quantity_field  TYPE abap_bool,
 
         "value help
         value_help         TYPE ty_s_value_help,
@@ -311,8 +311,6 @@ CLASS z2ui5_cl_cds_util IMPLEMENTATION.
     ENDTRY.
 
     "======= FIELD-LEVEL METADATA =======
-    DATA lv_has_display_anno TYPE abap_bool.
-
     TRY.
         DATA(lo_descr) = CAST cl_abap_structdescr(
           cl_abap_typedescr=>describe_by_name( lv_name ) ).
@@ -390,12 +388,6 @@ CLASS z2ui5_cl_cds_util IMPLEMENTATION.
       parse_field_annotations( EXPORTING it_annos = lt_annos
                                CHANGING  cs_field = ls_field ).
 
-      "check display annotation flag
-      LOOP AT lt_annos INTO DATA(ls_check)
-        WHERE annoname = `CONSUMPTION.VALUEHELPDEFAULT.DISPLAY`.
-        lv_has_display_anno = abap_true.
-      ENDLOOP.
-
       "check VH entity for dropdown
       IF ls_field-value_help-entity_name IS NOT INITIAL.
         ls_field-value_help-is_dropdown = is_size_category_xs( ls_field-value_help-entity_name ).
@@ -407,13 +399,6 @@ CLASS z2ui5_cl_cds_util IMPLEMENTATION.
 
       APPEND ls_field TO result-fields.
     ENDLOOP.
-
-    "if no display annotations found, all fields are visible
-    IF lv_has_display_anno = abap_false.
-      LOOP AT result-fields ASSIGNING FIELD-SYMBOL(<ls_f>).
-        <ls_f>-is_visible = abap_true.
-      ENDLOOP.
-    ENDIF.
 
   ENDMETHOD.
 
@@ -621,11 +606,7 @@ CLASS z2ui5_cl_cds_util IMPLEMENTATION.
 
   METHOD get_key_fields.
     TRY.
-        DATA(lo_descr) = CAST cl_abap_structdescr(
-          cl_abap_typedescr=>describe_by_name( to_upper( entity_name ) ) ).
-        "key fields: first components that form the key (from DDIC)
-        DATA(lt_comps) = lo_descr->get_components( ).
-        "try reading keys from DD annotation
+        "read keys from @ObjectModel.semanticKey annotation
         DATA(lv_entity) = CONV ddstrucobjname( to_upper( entity_name ) ).
         cl_dd_ddl_annotation_service=>get_direct_annos_4_entity(
           EXPORTING entityname = lv_entity
