@@ -1,20 +1,23 @@
 # cds-wrapper
 
-Display CDS Artefacts with abap2UI5
+Display CDS artifacts with abap2UI5
 
-### CDS Popup
+### CDS Action Dialog (Popup)
 
-##### Popup Definition 
+Renders a popup dialog for an abstract CDS entity, driven by its annotations (labels, tooltips, default values, value helps, multiline texts, hidden fields).
+
+##### Popup Definition
 ```cds
 @EndUserText.label: 'Entity for popup'
 define abstract entity z2ui5_cds_test_popup
 {
-  @Consumption.valueHelpDefinition: [{ entity: { name: 'ZBS_C_CountryVH', element: 'Country' } }]
-  @EndUserText.label: 'Search Country'
+  @Consumption.valueHelpDefinition: [{ entity: { name: 'I_Country', element: 'Country' } }]
+  @EndUserText.label: 'Country'
   SearchCountry : land1;
-  @EndUserText.label: 'New date'
+  @EndUserText.label: 'Valid To'
+  @UI.defaultValue: '99991231'
   NewDate       : abap.dats;
-  @EndUserText.label: 'Message type'
+  @EndUserText.label: 'Message Type'
   MessageType   : abap.int4;
   @EndUserText.label: 'Update data'
   FlagUpdate    : abap.char(1);
@@ -29,25 +32,42 @@ define abstract entity z2ui5_cds_test_popup
 
     IF client->check_on_init( ).
 
-      DATA(lo_popup) = NEW z2ui5_cl_cds_popup( value z2ui5_cds_test_popup(
-        SearchCountry = `USA`
-      ) ).
-      client->nav_app_call( CAST #( lo_popup ) ).
+      DATA(lo_dialog) = NEW z2ui5_cl_cds_action_dialog(
+        val   = VALUE z2ui5_cds_test_popup( searchcountry = `US` )
+        title = `Enter Parameters` ).
+      client->nav_app_call( CAST #( lo_dialog ) ).
       RETURN.
 
     ENDIF.
 
-    lo_popup = CAST #( client->get_app_prev( ) ).
-    data(ls_cds_result) = lo_popup->result( )->*.
+    lo_dialog = CAST #( client->get_app_prev( ) ).
+    IF lo_dialog->was_confirmed( ).
+      DATA(ls_cds_result) = CONV z2ui5_cds_test_popup( lo_dialog->result( )->* ).
+    ENDIF.
 
   ENDMETHOD.
 ```
 
 ### CDS Value Help
 
-##### Value Help Definition 
+Renders a table select dialog for any CDS view. Visible columns come from the entity metadata; `@ObjectModel.text.element` adds description columns.
 
 ##### abap2UI5 Value Help Call
+```abap
+  DATA(lo_vh) = NEW z2ui5_cl_cds_value_help(
+    cds_view_name = `I_COUNTRY`
+    element       = `Country`
+    title         = `Select Country` ).
+  client->nav_app_call( CAST #( lo_vh ) ).
+```
+
+On return, read the selection:
+```abap
+  lo_vh = CAST #( client->get_app_prev( ) ).
+  IF lo_vh->was_confirmed( ).
+    DATA(lv_country) = lo_vh->result_value( ).
+  ENDIF.
+```
 
 ### CDS List Report
 
@@ -81,3 +101,29 @@ Renders an object page for a single record of a CDS entity:
 "val: any structure typed after the CDS entity
 client->nav_app_call( NEW z2ui5_cl_cds_object_page( val = ls_row ) ).
 ```
+
+### CDS Worklist
+
+Renders a simple read-only table of a CDS view with `@UI.lineItem` columns (fallback: all visible fields):
+
+```abap
+client->nav_app_call( NEW z2ui5_cl_cds_worklist(
+  cds_view_name = `I_CURRENCY`
+  title         = `Currencies` ) ).
+```
+
+### CDS Overview Page
+
+Renders a grid of cards (table or KPI) for multiple CDS views:
+
+```abap
+client->nav_app_call( NEW z2ui5_cl_cds_overview_page(
+  title = `Business Overview`
+  cards = VALUE #(
+    ( cds_view_name = `I_COUNTRY`  title = `Countries`  card_type = `TABLE` max_rows = 5 )
+    ( cds_view_name = `I_LANGUAGE` title = `Languages`  card_type = `KPI` ) ) ) ).
+```
+
+### Demo
+
+See `z2ui5_cl_cds_test` for a demo app that showcases all components.

@@ -1,7 +1,7 @@
 CLASS z2ui5_cl_cds_overview_page DEFINITION
   PUBLIC
   FINAL
-  CREATE PUBLIC .
+  CREATE PUBLIC.
 
   PUBLIC SECTION.
 
@@ -240,7 +240,6 @@ CLASS z2ui5_cl_cds_overview_page IMPLEMENTATION.
 
     "find dataPoint fields for KPI
     DATA lv_kpi_value TYPE string.
-    DATA lv_kpi_unit TYPE string.
     LOOP AT is_card-entity-fields INTO DATA(ls_field)
       WHERE datapoint_qualifier IS NOT INITIAL.
       FIELD-SYMBOLS <lv_val> TYPE any.
@@ -262,11 +261,9 @@ CLASS z2ui5_cl_cds_overview_page IMPLEMENTATION.
     io_container->generic_tile(
       header    = is_card-title
       subheader = |{ is_card-count } items|
-      frameType = `OneByOne`
+      frametype = `OneByOne`
     )->tile_content(
-      )->numeric_content(
-        value = lv_kpi_value
-        scale = lv_kpi_unit ).
+      )->numeric_content( value = lv_kpi_value ).
 
   ENDMETHOD.
 

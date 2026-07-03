@@ -1,7 +1,7 @@
 CLASS z2ui5_cl_cds_action_dialog DEFINITION
   PUBLIC
   FINAL
-  CREATE PUBLIC .
+  CREATE PUBLIC.
 
   PUBLIC SECTION.
 
@@ -78,7 +78,6 @@ CLASS z2ui5_cl_cds_action_dialog IMPLEMENTATION.
     CREATE DATA ms_cds LIKE val.
     ms_cds->* = val.
     mv_title = title.
-    mv_confirmed = abap_false.
   ENDMETHOD.
 
 
@@ -252,8 +251,8 @@ CLASS z2ui5_cl_cds_action_dialog IMPLEMENTATION.
 
     IF is_field-value_help-entity_name IS NOT INITIAL.
       io_container->input(
-        value           = client->_bind_edit( val = <field> view = z2ui5_if_client=>cs_view-popup )
-        showvaluehelp   = abap_true
+        value            = client->_bind_edit( val = <field> view = z2ui5_if_client=>cs_view-popup )
+        showvaluehelp    = abap_true
         valuehelprequest = client->_event(
           val   = cs_event-value_help
           t_arg = VALUE #( ( is_field-name ) ) ) ).
@@ -287,7 +286,7 @@ CLASS z2ui5_cl_cds_action_dialog IMPLEMENTATION.
         ASSIGN lt_result->* TO <lt_data>.
         SELECT * FROM (lv_entity) INTO TABLE @<lt_data> UP TO 200 ROWS.
       CATCH cx_root.
-        client->message_toast_display( |Could not load value help data| ).
+        client->message_toast_display( `Could not load value help data` ).
         RETURN.
     ENDTRY.
 
@@ -342,23 +341,30 @@ CLASS z2ui5_cl_cds_action_dialog IMPLEMENTATION.
               FIELD-SYMBOLS <lv_target> TYPE any.
               ASSIGN COMPONENT ls_field-value_help-element
                 OF STRUCTURE <ls_row> TO <lv_vh_value>.
+              DATA(lv_vh_value_subrc) = sy-subrc.
               ASSIGN COMPONENT mv_vh_field
                 OF STRUCTURE ms_cds->* TO <lv_target>.
-              IF <lv_vh_value> IS ASSIGNED AND <lv_target> IS ASSIGNED.
+              IF lv_vh_value_subrc = 0 AND sy-subrc = 0.
                 <lv_target> = <lv_vh_value>.
               ENDIF.
             ENDIF.
 
+            " check sy-subrc after each ASSIGN - a field symbol stays
+            " assigned from the previous loop iteration
             LOOP AT ls_field-value_help-additional_binding INTO DATA(ls_bind)
               WHERE usage CS `RESULT`.
               IF ls_bind-element IS NOT INITIAL AND ls_bind-local_element IS NOT INITIAL.
                 FIELD-SYMBOLS <lv_src> TYPE any.
                 FIELD-SYMBOLS <lv_tgt> TYPE any.
                 ASSIGN COMPONENT ls_bind-element OF STRUCTURE <ls_row> TO <lv_src>.
-                ASSIGN COMPONENT ls_bind-local_element OF STRUCTURE ms_cds->* TO <lv_tgt>.
-                IF <lv_src> IS ASSIGNED AND <lv_tgt> IS ASSIGNED.
-                  <lv_tgt> = <lv_src>.
+                IF sy-subrc <> 0.
+                  CONTINUE.
                 ENDIF.
+                ASSIGN COMPONENT ls_bind-local_element OF STRUCTURE ms_cds->* TO <lv_tgt>.
+                IF sy-subrc <> 0.
+                  CONTINUE.
+                ENDIF.
+                <lv_tgt> = <lv_src>.
               ENDIF.
             ENDLOOP.
           ENDIF.
