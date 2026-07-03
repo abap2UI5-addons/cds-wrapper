@@ -1,7 +1,7 @@
 CLASS z2ui5_cl_cds_overview_page DEFINITION
   PUBLIC
   FINAL
-  CREATE PUBLIC .
+  CREATE PUBLIC.
 
   PUBLIC SECTION.
 
@@ -261,7 +261,7 @@ CLASS z2ui5_cl_cds_overview_page IMPLEMENTATION.
     io_container->generic_tile(
       header    = is_card-title
       subheader = |{ is_card-count } items|
-      frameType = `OneByOne`
+      frametype = `OneByOne`
     )->tile_content(
       )->numeric_content( value = lv_kpi_value ).
 

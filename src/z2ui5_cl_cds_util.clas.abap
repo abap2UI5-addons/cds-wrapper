@@ -1,7 +1,7 @@
 CLASS z2ui5_cl_cds_util DEFINITION
   PUBLIC
   FINAL
-  CREATE PUBLIC .
+  CREATE PUBLIC.
 
   PUBLIC SECTION.
 
@@ -55,10 +55,10 @@ CLASS z2ui5_cl_cds_util DEFINITION
         field_group_pos    TYPE i,
 
         "lineItem
-        line_item_pos      TYPE i,
+        line_item_pos        TYPE i,
         line_item_importance TYPE string,
         line_item_crit_field TYPE string,
-        line_item_label    TYPE string,
+        line_item_label      TYPE string,
 
         "selectionField
         selection_field_pos TYPE i,
@@ -73,15 +73,15 @@ CLASS z2ui5_cl_cds_util DEFINITION
         datapoint_crit_field TYPE string,
 
         "semantics
-        semantics_currency_code TYPE string,
+        semantics_currency_code   TYPE string,
         semantics_unit_of_measure TYPE string,
-        is_currency_field  TYPE abap_bool,
-        is_unit_field      TYPE abap_bool,
-        is_amount_field    TYPE abap_bool,
-        is_quantity_field  TYPE abap_bool,
+        is_currency_field         TYPE abap_bool,
+        is_unit_field             TYPE abap_bool,
+        is_amount_field           TYPE abap_bool,
+        is_quantity_field         TYPE abap_bool,
 
         "value help
-        value_help         TYPE ty_s_value_help,
+        value_help                TYPE ty_s_value_help,
       END OF ty_s_field_info.
 
     TYPES ty_t_field_info TYPE STANDARD TABLE OF ty_s_field_info WITH DEFAULT KEY.

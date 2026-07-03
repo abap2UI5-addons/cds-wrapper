@@ -1,7 +1,7 @@
 CLASS z2ui5_cl_cds_worklist DEFINITION
   PUBLIC
   FINAL
-  CREATE PUBLIC .
+  CREATE PUBLIC.
 
   PUBLIC SECTION.
 
@@ -130,7 +130,7 @@ CLASS z2ui5_cl_cds_worklist IMPLEMENTATION.
       shownavbutton  = client->check_app_prev_stack( )
       navbuttonpress = client->_event( `BACK` ) ).
 
-    "table with search in toolbar
+    "table
     DATA(lo_table) = lo_page->table(
       items              = `{path:'` && client->_bind_edit( val = <lt_data> path = abap_true ) && `'}`
       growing            = abap_true
@@ -143,7 +143,6 @@ CLASS z2ui5_cl_cds_worklist IMPLEMENTATION.
       )->overflow_toolbar(
         )->title( text = |{ mv_title } ({ lv_count })|
         )->toolbar_spacer(
-        )->search_field( width = `15rem`
         )->button( icon = `sap-icon://refresh` press = client->_event( cs_event-refresh ) ).
 
     "columns

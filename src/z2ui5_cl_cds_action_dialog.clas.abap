@@ -1,7 +1,7 @@
 CLASS z2ui5_cl_cds_action_dialog DEFINITION
   PUBLIC
   FINAL
-  CREATE PUBLIC .
+  CREATE PUBLIC.
 
   PUBLIC SECTION.
 
@@ -251,8 +251,8 @@ CLASS z2ui5_cl_cds_action_dialog IMPLEMENTATION.
 
     IF is_field-value_help-entity_name IS NOT INITIAL.
       io_container->input(
-        value           = client->_bind_edit( val = <field> view = z2ui5_if_client=>cs_view-popup )
-        showvaluehelp   = abap_true
+        value            = client->_bind_edit( val = <field> view = z2ui5_if_client=>cs_view-popup )
+        showvaluehelp    = abap_true
         valuehelprequest = client->_event(
           val   = cs_event-value_help
           t_arg = VALUE #( ( is_field-name ) ) ) ).
